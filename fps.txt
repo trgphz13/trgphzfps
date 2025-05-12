@@ -1,0 +1,140 @@
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local frameCount = 0
+local lastTime = tick()
+local rainbowSpeed = 0.25 -- hiệu ứng 7 màu rất chậm
+
+-- GUI setup
+local gui = Instance.new("ScreenGui")
+gui.Name = "FPSGui"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 1000
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+	gui.Parent = game:GetService("CoreGui")
+end)
+if not gui.Parent then
+	gui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Container
+local container = Instance.new("Frame")
+container.Size = UDim2.new(0, 240, 0, 32)
+container.Position = UDim2.new(0.5, -120, 0, 10)
+container.BackgroundTransparency = 1
+container.Parent = gui
+
+-- FPS Label
+local fpsLabel = Instance.new("TextLabel", container)
+fpsLabel.Size = UDim2.new(0, 105, 1, 0)
+fpsLabel.Position = UDim2.new(0, 0, 0, 0)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.Text = "FPS: ..."
+fpsLabel.TextSize = 22
+fpsLabel.Font = Enum.Font.Code
+fpsLabel.ZIndex = 1000
+fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+fpsLabel.Active = false
+fpsLabel.Selectable = false
+
+local fpsStroke = Instance.new("UIStroke", fpsLabel)
+fpsStroke.Thickness = 1.5
+fpsStroke.Transparency = 0.2
+fpsStroke.Color = fpsLabel.TextColor3
+
+-- TrgPhz wave setup (1 label per char)
+local text = " |  TrgPhz"
+local charLabels = {}
+
+local startX = 105
+for i = 1, #text do
+	local c = text:sub(i,i)
+	local label = Instance.new("TextLabel", container)
+	label.Size = UDim2.new(0, 14, 1, 0)
+	label.Position = UDim2.new(0, startX + (i-1)*14, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = c
+	label.TextSize = 22
+	label.Font = Enum.Font.Code
+	label.ZIndex = 1000
+	label.TextColor3 = Color3.new(1,1,1)
+	label.TextTransparency = 0
+	label.Active = false
+	label.Selectable = false
+
+	local stroke = Instance.new("UIStroke", label)
+	stroke.Thickness = 1.5
+	stroke.Transparency = 0.2
+	stroke.Color = Color3.new(1,1,1)
+
+	table.insert(charLabels, {Label = label, Stroke = stroke})
+end
+
+-- Rainbow helper
+local function hsvToRgb(h, s, v)
+	local i = math.floor(h * 6)
+	local f = h * 6 - i
+	local p = v * (1 - s)
+	local q = v * (1 - f * s)
+	local t = v * (1 - (1 - f) * s)
+	i = i % 6
+	if i == 0 then return Color3.new(v, t, p)
+	elseif i == 1 then return Color3.new(q, v, p)
+	elseif i == 2 then return Color3.new(p, v, t)
+	elseif i == 3 then return Color3.new(p, q, v)
+	elseif i == 4 then return Color3.new(t, p, v)
+	else return Color3.new(v, p, q) end
+end
+
+-- Random fade TrgPhz
+task.spawn(function()
+	while true do
+		task.wait(math.random(4,6))
+
+		for _, pair in ipairs(charLabels) do
+			TweenService:Create(pair.Label, TweenInfo.new(0.35), {TextTransparency = 1}):Play()
+		end
+		task.wait(0.35)
+		for _, pair in ipairs(charLabels) do
+			TweenService:Create(pair.Label, TweenInfo.new(0.35), {TextTransparency = 0}):Play()
+		end
+	end
+end)
+
+-- Update loop
+local interval = 1 / 3
+RunService.RenderStepped:Connect(function()
+	frameCount += 1
+	local now = tick()
+
+	-- Update FPS
+	if now - lastTime >= interval then
+		local currentFPS = math.floor((frameCount / (now - lastTime)) + 0.5)
+		lastTime = now
+		frameCount = 0
+		fpsLabel.Text = "FPS: " .. currentFPS
+
+		local fpsColor
+		if currentFPS >= 50 then
+			fpsColor = Color3.fromRGB(0, 255, 0)
+		elseif currentFPS >= 30 then
+			fpsColor = Color3.fromRGB(255, 200, 0)
+		else
+			fpsColor = Color3.fromRGB(255, 0, 0)
+		end
+		fpsLabel.TextColor3 = fpsColor
+		fpsStroke.Color = fpsColor
+	end
+
+	-- Rainbow wave update
+	local baseHue = (tick() * rainbowSpeed) % 1
+	for i, pair in ipairs(charLabels) do
+		local hue = (baseHue + (i * 0.06)) % 1
+		local color = hsvToRgb(hue, 1, 1)
+		pair.Label.TextColor3 = color
+		pair.Stroke.Color = color
+	end
+end)
